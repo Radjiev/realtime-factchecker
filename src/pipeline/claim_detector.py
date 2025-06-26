@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+import time
 
 import json
 
@@ -24,14 +25,25 @@ class ClaimDetector:
     def detect(self, text: str) -> List[str]:
         if openai is None:
             raise ImportError("openai package is required")
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": PROMPT},
-                {"role": "user", "content": text},
-            ],
-            temperature=0,
-        )
+
+        attempt = 0
+        while True:
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": PROMPT},
+                        {"role": "user", "content": text},
+                    ],
+                    temperature=0,
+                )
+                break
+            except Exception:
+                attempt += 1
+                if attempt >= 3:
+                    raise
+                time.sleep(2 ** attempt)
+                continue
         content = response["choices"][0]["message"]["content"]
         try:
             return json.loads(content)

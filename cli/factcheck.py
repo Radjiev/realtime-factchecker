@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from typing import List
@@ -23,20 +24,32 @@ def extract_video_id(url: str) -> str:
 
 
 @app.command()
-def factcheck(youtube_url: str, out: Path):
+def factcheck(
+    youtube_url: str,
+    out: Path,
+    youtube_key: str = typer.Option(None, envvar="YOUTUBE_API_KEY"),
+    openai_key: str = typer.Option(None, envvar="OPENAI_API_KEY"),
+    bing_key: str = typer.Option(None, envvar="BING_API_KEY"),
+):
     """Run fact checking pipeline on a YouTube video."""
-    video_id = extract_video_id(youtube_url)
-    api_key = "YOUR_YOUTUBE_API_KEY"
-    transcript = get_transcript(video_id, api_key) or ""
+    if not all([youtube_key, openai_key, bing_key]):
+        typer.echo("All API keys are required", err=True)
+        raise typer.Exit(code=1)
 
-    claim_detector = ClaimDetector(api_key="OPENAI_API_KEY")
+    video_id = extract_video_id(youtube_url)
+    typer.echo("Fetching transcript...")
+    transcript = get_transcript(video_id, youtube_key) or ""
+
+    typer.echo("Detecting claims...")
+    claim_detector = ClaimDetector(api_key=openai_key)
     claims = claim_detector.detect(transcript)
 
-    scorer = FactCheckScorer(api_key="OPENAI_API_KEY")
+    scorer = FactCheckScorer(api_key=openai_key)
 
     segments: List[dict] = []
     for idx, claim in enumerate(claims):
-        results = search(claim, api_key="BING_API_KEY")
+        typer.echo(f"Checking claim {idx+1}/{len(claims)}...")
+        results = search(claim, api_key=bing_key)
         snippets = [r["snippet"] for r in results]
         score = scorer.score(claim, snippets)
         segments.append(

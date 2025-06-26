@@ -11,28 +11,23 @@ API_VERSION = "v3"
 def get_transcript(video_id: str, api_key: str) -> Optional[str]:
     """Fetch transcript text for a YouTube video using the YouTube Data API v3.
 
-    Parameters
-    ----------
-    video_id: str
-        The ID of the YouTube video.
-    api_key: str
-        API key for authenticating with the YouTube Data API.
-
-    Returns
-    -------
-    Optional[str]
-        The transcript text if available, otherwise None.
+    Returns ``None`` if no captions are available or on error.
     """
     if build is None:
         raise ImportError("google-api-python-client is required")
-    youtube = build(API_SERVICE_NAME, API_VERSION, developerKey=api_key)
-    request = youtube.captions().list(part="id", videoId=video_id)
-    response = request.execute()
-    items = response.get("items")
-    if not items:
-        return None
+    try:
+        youtube = build(API_SERVICE_NAME, API_VERSION, developerKey=api_key)
+        response = youtube.captions().list(part="id", videoId=video_id).execute()
+        items = response.get("items")
+        if not items:
+            return None
 
-    caption_id = items[0]["id"]
-    caption_request = youtube.captions().download(id=caption_id)
-    caption = caption_request.execute()
-    return caption.get("body")
+        caption_id = items[0]["id"]
+        caption = youtube.captions().download(id=caption_id).execute()
+        body = caption.get("body")
+        if isinstance(body, bytes):
+            body = body.decode("utf-8", errors="ignore")
+        return body
+    except Exception:
+        # Gracefully return None on any API error
+        return None
