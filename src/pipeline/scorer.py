@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Dict
+import logging
 import json
 
 try:
@@ -32,13 +33,17 @@ class FactCheckScorer:
                 "content": json.dumps({"claim": claim, "evidence": evidence}),
             },
         ]
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=messages,
-            temperature=0,
-        )
-        content = response["choices"][0]["message"]["content"]
         try:
-            return json.loads(content)
-        except Exception:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=messages,
+                temperature=0,
+            )
+            content = response["choices"][0]["message"]["content"]
+            data = json.loads(content)
+            label = str(data.get("label", "unverified"))
+            confidence = float(data.get("confidence", 0))
+            return {"label": label, "confidence": confidence}
+        except Exception as exc:
+            logging.error("Scoring failed: %s", exc)
             return {"label": "unverified", "confidence": 0.0}
