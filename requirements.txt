@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+openai
+requests
+typer[all]
+google-api-python-client
